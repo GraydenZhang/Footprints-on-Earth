@@ -1,8 +1,8 @@
 # Footprints on Earth
 
-一个本地运行的足迹 CSV 可视化网页，灵感来源于解决 一生足迹app http://steplife.cn/ 没有 web界面 或 Windows App ，在 Windows 平台使用不便的问题。
+一个本地运行的足迹 CSV 可视化网页，灵感来源于解决 一生足迹app http://steplife.cn/ 没有 web界面 或 Windows App ，在 Windows 平台使用不便的问题。（本项目为非官方开源工具，与“一生足迹”官方及其开发者无关联。）
 
-默认加载 `data/footprint_test_file.csv` 作为演示数据(该数据不代表任何真实足迹），在页面里选择或拖入自己的 CSV 文件即可在本地查看。（默认使用从 一生足迹app 导出的数据）
+默认加载 `data/footprint_test_file.csv` 作为演示数据(该数据不代表任何真实足迹），在页面里选择或拖入自己的 CSV 文件即可在本地查看。当前版本主要适配 “一生足迹”App 导出的 CSV 数据格式。项目不包含“一生足迹”的源码、图标、Logo、素材或官方数据。
 
 项目使用 MapLibre GL JS 和 OpenStreetMap 瓦片渲染 3D 地球/平面地图，支持足迹点、轨迹线、日期筛选、数据点列表，以及可选的高德地图图源。
 
