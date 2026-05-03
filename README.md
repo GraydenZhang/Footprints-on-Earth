@@ -1,38 +1,55 @@
 # Footprints on Earth
 
-A local CSV visualization app for footprint/location exports. The app loads data/footprint_test_file.csv as the public demo dataset by default. You can also choose or drag in your own CSV file in the browser for local viewing.
+一个本地运行的足迹 CSV 可视化网页。默认加载 `data/footprint_test_file.csv` 作为公开演示数据，也可以在页面里选择或拖入自己的 CSV 文件进行本地查看。
 
-The map uses MapLibre GL JS with OpenStreetMap raster tiles and supports globe/flat map modes, footprint points, route lines, date filtering, a virtualized point list, and optional AMap tiles.
+项目使用 MapLibre GL JS 和 OpenStreetMap 瓦片渲染 3D 地球/平面地图，支持足迹点、轨迹线、日期筛选、数据点列表，以及可选的高德地图图源。
 
-## Run
+## 运行
 
-Node.js is required.
+需要先安装 Node.js。
 
-    ./serve.sh
+```bash
+./serve.sh
+```
 
-On Windows PowerShell, you can also run:
+Windows PowerShell 也可以运行：
 
-    .\serve.ps1
+```powershell
+.\serve.ps1
+```
 
-Then open:
+然后在浏览器打开：
 
-    http://127.0.0.1:5173/
+```text
+http://127.0.0.1:5173/
+```
 
-## CSV Data
+## CSV 数据
 
-The default demo file is:
+默认演示文件位于：
 
-    data/footprint_test_file.csv
+```text
+data/footprint_test_file.csv
+```
 
-The CSV should include dataTime, longitude, and latitude columns. Optional columns such as speed, distance, altitude, and heading are also read when present.
+CSV 至少需要包含 `dataTime`、`longitude`、`latitude` 三列。如果有 `speed`、`distance`、`altitude`、`heading` 等字段，页面也会一起读取并显示。
 
-To avoid accidentally publishing private footprint data, .gitignore ignores other CSV files under data/ and keeps only data/footprint_test_file.csv as the public demo file. For private data, use the in-browser file picker or drag-and-drop flow.
+为了避免误传私人足迹数据，`.gitignore` 会忽略 `data/` 下的其他 CSV，只保留 `data/footprint_test_file.csv` 作为公开演示文件。使用自己的真实数据时，推荐直接在页面点击“选择 CSV”，或把 CSV 文件拖入窗口。
 
-## Features
+## 功能
 
-- OpenStreetMap map tiles
-- MapLibre GL JS globe and flat map views
-- Footprint points, route lines, and automatic map fitting
-- Year, month, day, and time range filtering
-- Linked point list and map highlight behavior
-- Optional AMap source; the key and security code are stored only in browser localStorage
+- OpenStreetMap 实时地图瓦片
+- MapLibre GL JS 3D 地球和平面地图
+- 足迹点、轨迹线和地图视野自适应
+- 年、月、日筛选与时间范围筛选
+- 数据点列表和地图点联动高亮
+- 可选高德地图图源，Key 和安全密钥只保存在浏览器本地
+
+## 发布版
+
+`v0.1` 发布版提供两个演示包：
+
+- `FootprintsOnEarth-portable.exe`：单文件便携版，内置网页和演示 CSV。
+- `FootprintsOnEarth-portable.zip`：文件夹版，解压后双击 `FootprintsOnEarth.exe` 运行。
+
+发布版里的默认演示 CSV 名称同样是 `footprint_test_file.csv`。
