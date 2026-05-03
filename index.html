@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>一生足迹 Footprints on Earth</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <div id="map" aria-label="OpenStreetMap 3D 地球足迹地图"></div>
+
+      <header class="brand-panel" aria-label="应用标题">
+        <span class="eyebrow">一生足迹</span>
+        <h1>Footprints on Earth</h1>
+      </header>
+
+      <nav class="top-actions" aria-label="顶部操作">
+        <button id="fitButton" class="text-button" type="button">全览</button>
+        <button id="loadFileButton" class="text-button primary" type="button">选择 CSV</button>
+        <button id="restoreDemoButton" class="text-button" type="button">恢复默认演示</button>
+        <div class="settings-wrap">
+          <button
+            id="settingsToggle"
+            class="text-button"
+            type="button"
+            aria-expanded="false"
+            aria-controls="settingsMenu"
+          >
+            设置
+          </button>
+          <div id="settingsMenu" class="settings-menu collapsed" aria-label="地图显示设置">
+            <label><input id="pointsToggle" type="checkbox" checked /> 在地图上显示点</label>
+            <label><input id="pathToggle" type="checkbox" checked /> 在地图上显示轨迹</label>
+            <label><input id="autoFitToggle" type="checkbox" checked /> 地图界面随日期选择缩放</label>
+            <div class="settings-section">
+              <span class="settings-title">地图模式</span>
+              <div id="mapModeButtons" class="segmented-controls" role="group" aria-label="地图模式">
+                <button type="button" data-mode="globe">3D地球</button>
+                <button type="button" data-mode="flat">平面</button>
+              </div>
+            </div>
+            <div id="globeSourceSection" class="settings-section source-section" data-source-mode="globe">
+              <span class="settings-title">3D地球图源</span>
+              <div id="globeSourceButtons" class="segmented-controls source-controls" role="group" aria-label="3D 地球图源">
+                <button type="button" data-source="osm">OpenStreetMap</button>
+                <span class="source-choice">
+                  <button type="button" data-source="amap">高德</button>
+                  <span class="help-dot" tabindex="0" aria-label="用户需自行获取高德Key">?</span>
+                </span>
+              </div>
+            </div>
+            <div id="flatSourceSection" class="settings-section source-section" data-source-mode="flat">
+              <span class="settings-title">平面图源</span>
+              <div id="flatSourceButtons" class="segmented-controls source-controls" role="group" aria-label="平面图源">
+                <button type="button" data-source="osm">OpenStreetMap</button>
+                <span class="source-choice">
+                  <button type="button" data-source="amap">高德</button>
+                  <span class="help-dot" tabindex="0" aria-label="用户需自行获取高德Key">?</span>
+                </span>
+              </div>
+            </div>
+            <button id="amapKeyButton" class="settings-link-button" type="button">更换高德 Key / 安全密钥</button>
+          </div>
+        </div>
+        <input id="fileInput" type="file" accept=".csv,text/csv" hidden />
+        <span id="statusText" class="status-pill">加载中</span>
+      </nav>
+
+      <aside class="left-stack" aria-label="足迹控制与列表">
+        <section class="control-panel" aria-label="地图控制面板">
+          <div class="source-row">
+            <span class="eyebrow">数据源</span>
+            <strong id="sourceName">data/footprint_test_file.csv</strong>
+          </div>
+
+          <div class="stats-grid" aria-label="足迹统计">
+            <div>
+              <span>总点数</span>
+              <strong id="pointCount">--</strong>
+            </div>
+            <div>
+              <span>可见点</span>
+              <strong id="visibleCount">--</strong>
+            </div>
+            <div>
+              <span>日期</span>
+              <strong id="dateRange">--</strong>
+            </div>
+            <div>
+              <span>里程</span>
+              <strong id="distanceTotal">--</strong>
+            </div>
+          </div>
+
+          <label class="control-line" for="timeStart">
+            <span>开始</span>
+            <input id="timeStart" type="range" min="0" max="1000" value="0" />
+          </label>
+          <label class="control-line" for="timeEnd">
+            <span>结束</span>
+            <input id="timeEnd" type="range" min="0" max="1000" value="1000" />
+          </label>
+          <div class="range-caption">
+            <span id="visibleStart">--</span>
+            <span id="visibleEnd">--</span>
+          </div>
+
+          <button id="timelineToggle" class="timeline-trigger" type="button">时间列表</button>
+        </section>
+
+        <section id="timelinePanel" class="timeline-panel collapsed" aria-label="时间与数据点列表">
+          <div class="date-scrollers" aria-label="年月日列表">
+            <section class="date-column" aria-label="年份列表">
+              <div class="column-title">年</div>
+              <div id="yearList" class="date-list"></div>
+            </section>
+            <section class="date-column" aria-label="月份列表">
+              <div class="column-title">月</div>
+              <div id="monthList" class="date-list"></div>
+            </section>
+            <section class="date-column" aria-label="日期列表">
+              <div class="column-title">日</div>
+              <div id="dayList" class="date-list"></div>
+            </section>
+          </div>
+
+          <div class="point-column" aria-label="数据点列表">
+            <div class="point-column-head">
+              <strong id="dayPointCount">数据点:--</strong>
+              <span id="dayLabel" class="muted-text">全部数据</span>
+            </div>
+            <div id="pointList" class="point-list"></div>
+          </div>
+        </section>
+      </aside>
+
+      <div id="amapModal" class="modal-shell collapsed" aria-hidden="true">
+        <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="amapModalTitle">
+          <div class="modal-form">
+            <div class="modal-head">
+              <div>
+                <span class="eyebrow">高德地图</span>
+                <h2 id="amapModalTitle">输入 Key 和安全密钥</h2>
+              </div>
+              <button id="amapCancelButton" class="icon-close" type="button" aria-label="关闭">×</button>
+            </div>
+            <label class="field-line">
+              <span>Key</span>
+              <input id="amapKeyInput" type="text" autocomplete="off" placeholder="请输入高德 Web 服务 Key" />
+            </label>
+            <label class="field-line">
+              <span>安全密钥</span>
+              <input id="amapSecretInput" type="password" autocomplete="off" placeholder="请输入安全密钥" />
+            </label>
+            <div class="modal-actions">
+              <button id="amapHelpButton" class="text-button" type="button">获取方式</button>
+              <button id="amapSaveButton" class="text-button primary" type="button">提交并使用</button>
+            </div>
+          </div>
+          <aside id="amapHelpPanel" class="amap-help" aria-label="高德 Key 获取方法">
+            <strong>高德 Key 获取方法：</strong>
+            <p>打开 <a href="https://lbs.amap.com/" target="_blank" rel="noopener">高德开放平台</a>；</p>
+            <p>登录/注册并完成开发者认证；</p>
+            <p>进控制台的 应用管理；</p>
+            <p>创建新应用；</p>
+            <p>在应用里点「添加 Key」；</p>
+            <p>选「Web端(JS API)」；</p>
+            <p>提交后复制 Key 和 安全密钥。</p>
+          </aside>
+        </section>
+      </div>
+    </main>
+
+    <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js" defer></script>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

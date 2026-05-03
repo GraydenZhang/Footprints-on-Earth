@@ -1,0 +1,34 @@
+# Local configuration and secrets
+.env
+*.env
+*.local
+
+# Dependencies and caches
+node_modules/
+.venv/
+__pycache__/
+.cache/
+*.log
+
+# Build output and packaged binaries
+dist/
+build/
+release/
+*.exe
+*.msi
+*.zip
+
+# Generated screenshots and review artifacts
+artifacts/
+screenshots/
+*.png
+!assets/*.png
+!assets/**/*.png
+
+# Local CSV exports; keep only the public demo file
+data/*.csv
+!data/footprint_test_file.csv
+
+# OS metadata
+.DS_Store
+Thumbs.db
