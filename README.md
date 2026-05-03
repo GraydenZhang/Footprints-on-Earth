@@ -1,6 +1,8 @@
 # Footprints on Earth
 
-一个本地运行的足迹 CSV 可视化网页。默认加载 `data/footprint_test_file.csv` 作为公开演示数据，也可以在页面里选择或拖入自己的 CSV 文件进行本地查看。
+一个本地运行的足迹 CSV 可视化网页，灵感来源于解决 http://steplife.cn/ 一生足迹app 没有 web 或 Windows App ，在 Windows 平台使用不便。
+
+默认加载 `data/footprint_test_file.csv` 作为演示数据(该数据不代表任何真实足迹），在页面里选择或拖入自己的 CSV 文件即可在本地查看。
 
 项目使用 MapLibre GL JS 和 OpenStreetMap 瓦片渲染 3D 地球/平面地图，支持足迹点、轨迹线、日期筛选、数据点列表，以及可选的高德地图图源。
 
