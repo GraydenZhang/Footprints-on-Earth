@@ -6,6 +6,22 @@
 
 项目使用 MapLibre GL JS 和 OpenStreetMap 瓦片渲染 3D 地球/平面地图，支持足迹点、轨迹线、日期筛选、数据点列表，以及可选的高德地图图源。
 
+## 功能
+
+- OpenStreetMap 实时地图瓦片
+- MapLibre GL JS 3D 地球和平面地图
+- 足迹点、轨迹线和地图视野自适应
+- 年、月、日筛选与时间范围筛选
+- 数据点列表和地图点联动高亮
+- 可选高德地图图源，Key 和安全密钥只保存在浏览器本地
+
+## 发布版
+
+`v0.1` 发布版提供两个演示包：
+
+- `FootprintsOnEarth-portable.exe`：单文件便携版，内置网页和演示 CSV。
+- `FootprintsOnEarth-portable.zip`：文件夹版，解压后双击 `FootprintsOnEarth.exe` 运行。
+
 ## 运行
 
 需要先安装 Node.js。
@@ -38,20 +54,4 @@ CSV 至少需要包含 `dataTime`、`longitude`、`latitude` 三列。如果有 
 
 为了避免误传私人足迹数据，`.gitignore` 会忽略 `data/` 下的其他 CSV，只保留 `data/footprint_test_file.csv` 作为公开演示文件。使用自己的真实数据时，推荐直接在页面点击“选择 CSV”，或把 CSV 文件拖入窗口。
 
-## 功能
 
-- OpenStreetMap 实时地图瓦片
-- MapLibre GL JS 3D 地球和平面地图
-- 足迹点、轨迹线和地图视野自适应
-- 年、月、日筛选与时间范围筛选
-- 数据点列表和地图点联动高亮
-- 可选高德地图图源，Key 和安全密钥只保存在浏览器本地
-
-## 发布版
-
-`v0.1` 发布版提供两个演示包：
-
-- `FootprintsOnEarth-portable.exe`：单文件便携版，内置网页和演示 CSV。
-- `FootprintsOnEarth-portable.zip`：文件夹版，解压后双击 `FootprintsOnEarth.exe` 运行。
-
-发布版里的默认演示 CSV 名称同样是 `footprint_test_file.csv`。
