@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>一生足迹 Footprints on Earth</title>
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="./vendor/maplibre-gl/maplibre-gl.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -31,9 +31,6 @@
             设置
           </button>
           <div id="settingsMenu" class="settings-menu collapsed" aria-label="地图显示设置">
-            <label><input id="pointsToggle" type="checkbox" checked /> 在地图上显示点</label>
-            <label><input id="pathToggle" type="checkbox" checked /> 在地图上显示轨迹</label>
-            <label><input id="autoFitToggle" type="checkbox" checked /> 地图界面随日期选择缩放</label>
             <div class="settings-section">
               <span class="settings-title">地图模式</span>
               <div id="mapModeButtons" class="segmented-controls" role="group" aria-label="地图模式">
@@ -61,6 +58,48 @@
                 </span>
               </div>
             </div>
+            <div class="settings-block">
+              <label class="switch-control">
+                <input id="pointsToggle" type="checkbox" checked />
+                <span class="switch-track" aria-hidden="true"></span>
+                <span>在地图上显示点</span>
+              </label>
+              <div id="pointOptions" class="settings-option-panel">
+                <div class="slider-control">
+                  <div class="slider-head">
+                    <span>点大小</span>
+                    <button id="pointSizeReset" class="mini-button" type="button">恢复默认</button>
+                  </div>
+                  <input id="pointSizeRange" type="range" min="0.25" max="4" step="0.05" value="1" aria-label="点大小" />
+                </div>
+              </div>
+            </div>
+            <div class="settings-block">
+              <label class="switch-control">
+                <input id="pathToggle" type="checkbox" checked />
+                <span class="switch-track" aria-hidden="true"></span>
+                <span>在地图上显示轨迹</span>
+              </label>
+              <div id="pathOptions" class="settings-option-panel">
+                <label class="switch-control nested-switch">
+                  <input id="gapPathToggle" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span>连接间隔较远的轨迹</span>
+                </label>
+                <div class="slider-control">
+                  <div class="slider-head">
+                    <span>轨迹粗细</span>
+                    <button id="pathWidthReset" class="mini-button" type="button">恢复默认</button>
+                  </div>
+                  <input id="pathWidthRange" type="range" min="0.25" max="4" step="0.05" value="1" aria-label="轨迹粗细" />
+                </div>
+              </div>
+            </div>
+            <label class="switch-control">
+              <input id="autoFitToggle" type="checkbox" checked />
+              <span class="switch-track" aria-hidden="true"></span>
+              <span>地图界面随日期选择缩放</span>
+            </label>
             <button id="amapKeyButton" class="settings-link-button" type="button">更换高德 Key / 安全密钥</button>
           </div>
         </div>
@@ -173,7 +212,7 @@
       </div>
     </main>
 
-    <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js" defer></script>
+    <script src="./vendor/maplibre-gl/maplibre-gl.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>
