@@ -165,6 +165,8 @@ namespace FootprintsOnEarth
             { "index.html", "index.html" },
             { "app.js", "app.js" },
             { "styles.css", "styles.css" },
+            { "vendor/maplibre-gl/maplibre-gl.css", "vendor/maplibre-gl/maplibre-gl.css" },
+            { "vendor/maplibre-gl/maplibre-gl.js", "vendor/maplibre-gl/maplibre-gl.js" },
             { "data/footprint_test_file.csv", "data/footprint_test_file.csv" }
         };
 

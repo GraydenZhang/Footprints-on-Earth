@@ -6,6 +6,8 @@ const MAX_PATH_GAP_SECONDS = 10 * 60 * 60;
 const MAX_PATH_GAP_KM = 280;
 const ROW_HEIGHT = 58;
 const ROW_OVERSCAN = 8;
+const REQUIRED_CSV_COLUMNS = ["dataTime", "longitude", "latitude"];
+const DEFAULT_SCALE = 1;
 const START_WITH_TIMELINE = new URLSearchParams(window.location.search).get("timeline") === "1";
 const SETTINGS_KEY = "footprints-earth-settings-v2";
 const AMAP_CREDENTIALS_KEY = "footprints-earth-amap-credentials-v1";
@@ -18,6 +20,9 @@ const DEFAULT_SETTINGS = {
     globe: "osm",
     flat: "osm",
   },
+  connectDistantPath: false,
+  pointScale: DEFAULT_SCALE,
+  pathScale: DEFAULT_SCALE,
 };
 const $ = (selector) => document.querySelector(selector);
 
@@ -35,6 +40,13 @@ const els = {
   timeEnd: $("#timeEnd"),
   pointsToggle: $("#pointsToggle"),
   pathToggle: $("#pathToggle"),
+  gapPathToggle: $("#gapPathToggle"),
+  pointOptions: $("#pointOptions"),
+  pathOptions: $("#pathOptions"),
+  pointSizeRange: $("#pointSizeRange"),
+  pointSizeReset: $("#pointSizeReset"),
+  pathWidthRange: $("#pathWidthRange"),
+  pathWidthReset: $("#pathWidthReset"),
   autoFitToggle: $("#autoFitToggle"),
   loadFileButton: $("#loadFileButton"),
   restoreDemoButton: $("#restoreDemoButton"),
@@ -87,6 +99,9 @@ const state = {
   selectedYear: null,
   selectedMonthKey: null,
   selectedDayKey: null,
+  hoveredDayKey: null,
+  hoverContextYear: null,
+  hoverContextMonthKey: null,
   view: { type: "all", key: null },
   selectedPoint: null,
   exactRange: null,
@@ -147,8 +162,8 @@ function setupMap() {
     attributionControl: false,
   });
 
-  state.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
-  state.map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
+  state.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+  state.map.addControl(new maplibregl.AttributionControl({ compact: false }), "bottom-right");
 
   state.map.on("load", () => finishMapStyleLoad(true));
   state.map.on("style.load", () => finishMapStyleLoad(true));
@@ -231,11 +246,46 @@ function getActiveSource() {
   return state.settings.sources[state.settings.mapMode] ?? "osm";
 }
 
+function pointRadiusExpression(scale = state.settings.pointScale) {
+  return [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    0,
+    2 * scale,
+    5,
+    2.5 * scale,
+    10,
+    3.2 * scale,
+    14,
+    4 * scale,
+    16,
+    4.8 * scale,
+  ];
+}
+
+function pointStrokeWidthExpression(scale = state.settings.pointScale) {
+  return ["interpolate", ["linear"], ["zoom"], 0, 0, 10, 0.35 * scale, 16, 0.7 * scale];
+}
+
+function pathWidthExpression(scale = state.settings.pathScale) {
+  return ["interpolate", ["linear"], ["zoom"], 0, 3.4 * scale, 7, 4.2 * scale, 13, 5.8 * scale];
+}
+
+function pathShadowWidthExpression(scale = state.settings.pathScale) {
+  return ["interpolate", ["linear"], ["zoom"], 0, 4.2 * scale, 7, 4.8 * scale, 13, 6 * scale];
+}
+
+function gapPathWidthExpression(scale = state.settings.pathScale) {
+  return ["interpolate", ["linear"], ["zoom"], 0, 3.1 * scale, 7, 3.8 * scale, 13, 5.2 * scale];
+}
+
 function addFootprintLayers() {
   if (state.map.getSource("footprints")) return;
 
   state.map.addSource("footprints", { type: "geojson", data: emptyPoints });
   state.map.addSource("footprint-path", { type: "geojson", data: emptyPath });
+  state.map.addSource("footprint-gap-path", { type: "geojson", data: emptyPath });
   state.map.addSource("selected-point", { type: "geojson", data: emptyPoints });
 
   state.map.addLayer({
@@ -249,7 +299,7 @@ function addFootprintLayers() {
     paint: {
       "line-color": "rgba(34, 10, 0, 0.38)",
       "line-opacity": 0.42,
-      "line-width": ["interpolate", ["linear"], ["zoom"], 0, 4.2, 7, 4.8, 13, 6],
+      "line-width": pathShadowWidthExpression(),
     },
   });
 
@@ -264,7 +314,22 @@ function addFootprintLayers() {
     paint: {
       "line-color": "#ff2438",
       "line-opacity": 0.96,
-      "line-width": ["interpolate", ["linear"], ["zoom"], 0, 3.4, 7, 4.2, 13, 5.8],
+      "line-width": pathWidthExpression(),
+    },
+  });
+
+  state.map.addLayer({
+    id: "footprint-gap-path",
+    type: "line",
+    source: "footprint-gap-path",
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
+    paint: {
+      "line-color": "#ff2438",
+      "line-opacity": 0.5,
+      "line-width": gapPathWidthExpression(),
     },
   });
 
@@ -275,9 +340,9 @@ function addFootprintLayers() {
     paint: {
       "circle-color": "#f5c542",
       "circle-opacity": 0.92,
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, 2, 5, 2.5, 10, 3.2, 14, 4, 16, 4.8],
+      "circle-radius": pointRadiusExpression(),
       "circle-stroke-color": "rgba(20, 14, 0, 0.42)",
-      "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 0, 0, 10, 0.35, 16, 0.7],
+      "circle-stroke-width": pointStrokeWidthExpression(),
     },
   });
 
@@ -332,7 +397,7 @@ function bindEvents() {
       ingestCsv(text, file.name, { fit: true });
     } catch (error) {
       console.error(error);
-      setStatus("读取失败", true);
+      setStatus("读取失败", true, getErrorMessage(error));
     }
   });
 
@@ -372,12 +437,42 @@ function bindEvents() {
     });
   });
 
-  [
-    [els.pointsToggle, "footprint-points"],
-    [els.pathToggle, "footprint-path"],
-    [els.pathToggle, "footprint-path-shadow"],
-  ].forEach(([input, layerId]) => {
-    input.addEventListener("change", () => setLayerVisibility(layerId, input.checked));
+  els.pointsToggle.addEventListener("change", () => {
+    syncSettingsConditionalControls();
+    syncLayerVisibility();
+  });
+  els.pathToggle.addEventListener("change", () => {
+    syncSettingsConditionalControls();
+    syncLayerVisibility();
+    refreshMapData();
+  });
+  els.gapPathToggle.addEventListener("change", () => {
+    state.settings.connectDistantPath = els.gapPathToggle.checked;
+    saveSettings();
+    syncLayerVisibility();
+    refreshMapData();
+  });
+  els.pointSizeRange.addEventListener("input", () => {
+    state.settings.pointScale = normalizeScale(els.pointSizeRange.value);
+    saveSettings();
+    applyPaintScales();
+  });
+  els.pointSizeReset.addEventListener("click", () => {
+    state.settings.pointScale = DEFAULT_SETTINGS.pointScale;
+    saveSettings();
+    renderSettingsControls();
+    applyPaintScales();
+  });
+  els.pathWidthRange.addEventListener("input", () => {
+    state.settings.pathScale = normalizeScale(els.pathWidthRange.value);
+    saveSettings();
+    applyPaintScales();
+  });
+  els.pathWidthReset.addEventListener("click", () => {
+    state.settings.pathScale = DEFAULT_SETTINGS.pathScale;
+    saveSettings();
+    renderSettingsControls();
+    applyPaintScales();
   });
 
   els.yearList.addEventListener("click", (event) => {
@@ -397,6 +492,17 @@ function bindEvents() {
     if (!button) return;
     selectDay(button.dataset.day);
   });
+  els.dayList.addEventListener("pointerover", (event) => {
+    const button = event.target.closest("button[data-day]");
+    if (!button || !els.dayList.contains(button)) return;
+    setTimelineHoverContext(button.dataset.day);
+  });
+  els.dayList.addEventListener("pointerleave", clearTimelineHoverContext);
+  els.dayList.addEventListener("focusin", (event) => {
+    const button = event.target.closest("button[data-day]");
+    if (button) setTimelineHoverContext(button.dataset.day);
+  });
+  els.dayList.addEventListener("focusout", clearTimelineHoverContext);
 
   els.pointList.addEventListener("scroll", renderVirtualPointList);
   els.pointList.addEventListener("click", (event) => {
@@ -424,10 +530,15 @@ function bindEvents() {
     event.preventDefault();
     const file = [...event.dataTransfer.files].find((item) => item.name.toLowerCase().endsWith(".csv"));
     if (!file) return;
-    setStatus("读取中");
-    const text = await file.text();
-    await saveLastCsv(file.name, text);
-    ingestCsv(text, file.name, { fit: true });
+    try {
+      setStatus("读取中");
+      const text = await file.text();
+      await saveLastCsv(file.name, text);
+      ingestCsv(text, file.name, { fit: true });
+    } catch (error) {
+      console.error(error);
+      setStatus("读取失败", true, getErrorMessage(error));
+    }
   });
 }
 
@@ -456,7 +567,7 @@ async function loadDefaultCsv(options = {}) {
   } catch (error) {
     console.error(error);
     els.source.textContent = "请选择 CSV";
-    setStatus("待选择", true);
+    setStatus("待选择", true, getErrorMessage(error));
   }
 }
 
@@ -529,9 +640,13 @@ async function clearLastCsv() {
 }
 
 function ingestCsv(text, label, options = {}) {
-  const rows = parseCsv(text);
-  const points = rows
-    .map(normalizePoint)
+  const parsed = parseCsv(text);
+  validateCsvColumns(parsed.headers);
+
+  const normalized = parsed.rows.map(normalizePoint);
+  const skipped = normalized.filter((point) => !point).length;
+  const firstSkipped = skipped ? findFirstSkippedRow(parsed.rows) : null;
+  const points = normalized
     .filter(Boolean)
     .sort((a, b) => a.time - b.time)
     .map((point, index, sorted) => ({
@@ -561,12 +676,19 @@ function ingestCsv(text, label, options = {}) {
 
   buildDateGroups(points);
   state.selectedYear = state.years[0] ?? null;
+  state.hoveredDayKey = null;
+  state.hoverContextYear = null;
+  state.hoverContextMonthKey = null;
   renderAllLists();
   updateStats();
   applyFilters({ fit: options.fit ?? true, allData: options.allData ?? true });
   refreshSelectedPoint();
   if (START_WITH_TIMELINE) setTimelineOpen(true);
-  setStatus("已加载");
+  setStatus(
+    skipped ? `已加载，跳过 ${formatInt(skipped)} 行` : "已加载",
+    false,
+    firstSkipped ? `首个跳过行：第 ${firstSkipped.rowNumber} 行，${firstSkipped.reason}` : "",
+  );
 }
 
 function parseCsv(text) {
@@ -607,15 +729,22 @@ function parseCsv(text) {
   }
 
   const headers = rows.shift()?.map((name) => name.trim()) ?? [];
-  return rows.map((values) => Object.fromEntries(headers.map((key, index) => [key, values[index] ?? ""])));
+  return {
+    headers,
+    rows: rows.map((values) => Object.fromEntries(headers.map((key, index) => [key, values[index] ?? ""]))),
+  };
+}
+
+function validateCsvColumns(headers) {
+  const missing = REQUIRED_CSV_COLUMNS.filter((column) => !headers.includes(column));
+  if (missing.length) {
+    throw new Error(`CSV 缺少必需列：${missing.join(", ")}`);
+  }
 }
 
 function normalizePoint(row, rawIndex) {
-  const lon = numberFrom(row.longitude);
-  const lat = numberFrom(row.latitude);
-  const time = normalizeTimestamp(row.dataTime);
-  if (lon === null || lat === null || time === null) return null;
-  if (lon < -180 || lon > 180 || lat < -90 || lat > 90) return null;
+  const { lon, lat, time, reason } = validatePointRow(row);
+  if (reason) return null;
   return {
     rawIndex,
     lon,
@@ -626,6 +755,32 @@ function normalizePoint(row, rawIndex) {
     altitude: numberFrom(row.altitude),
     heading: numberFrom(row.heading),
   };
+}
+
+function validatePointRow(row) {
+  const lon = numberFrom(row.longitude);
+  const lat = numberFrom(row.latitude);
+  const time = normalizeTimestamp(row.dataTime);
+  if (time === null) return { reason: "dataTime 不是有效时间戳" };
+  if (lon === null) return { reason: "longitude 不是有效经度" };
+  if (lat === null) return { reason: "latitude 不是有效纬度" };
+  if (lon < -180 || lon > 180) return { reason: "longitude 超出 -180 到 180 范围" };
+  if (lat < -90 || lat > 90) return { reason: "latitude 超出 -90 到 90 范围" };
+  return { lon, lat, time };
+}
+
+function findFirstSkippedRow(rows) {
+  for (let index = 0; index < rows.length; index += 1) {
+    const result = validatePointRow(rows[index]);
+    if (result.reason) {
+      return { rowNumber: index + 2, reason: result.reason };
+    }
+  }
+  return null;
+}
+
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function decoratePoints(points) {
@@ -712,8 +867,9 @@ function renderYearList() {
   for (const year of state.years) {
     const group = state.yearGroups.get(year);
     const active = state.view.type !== "all" && state.selectedYear === year;
+    const context = state.hoverContextYear === year;
     fragment.append(createTimeButton({
-      className: `time-item${active ? " active" : ""}`,
+      className: `time-item${active ? " active" : ""}${context ? " context" : ""}`,
       dataset: { year },
       title: year,
       subtitle: `${formatInt(group.points.length)} 点`,
@@ -726,8 +882,9 @@ function renderMonthList() {
   const months = state.monthsByYear.get(state.selectedYear) ?? [];
   const fragment = document.createDocumentFragment();
   for (const month of months) {
+    const context = state.hoverContextMonthKey === month.key;
     fragment.append(createTimeButton({
-      className: `time-item${month.key === state.selectedMonthKey ? " active" : ""}`,
+      className: `time-item${month.key === state.selectedMonthKey ? " active" : ""}${context ? " context" : ""}`,
       dataset: { month: month.key },
       title: month.label,
       subtitle: `${formatInt(month.points.length)} 点`,
@@ -743,13 +900,50 @@ function renderDayList() {
   const fragment = document.createDocumentFragment();
   for (const day of days) {
     fragment.append(createTimeButton({
-      className: `time-item${day.key === state.selectedDayKey ? " active" : ""}`,
+      className: `time-item${day.key === state.selectedDayKey ? " active" : ""}${day.key === state.hoveredDayKey ? " context" : ""}`,
       dataset: { day: day.key },
       title: day.points[0].dayLabel,
       subtitle: `${formatInt(day.points.length)} 点`,
     }));
   }
   els.dayList.replaceChildren(fragment);
+}
+
+function setTimelineHoverContext(dayKey) {
+  const day = state.dayGroups.get(dayKey);
+  const first = day?.points?.[0];
+  if (!first) return;
+  if (
+    state.hoveredDayKey === dayKey &&
+    state.hoverContextYear === first.year &&
+    state.hoverContextMonthKey === first.monthKey
+  ) {
+    return;
+  }
+  state.hoveredDayKey = dayKey;
+  state.hoverContextYear = first.year;
+  state.hoverContextMonthKey = first.monthKey;
+  renderTimelineContextHighlights();
+}
+
+function clearTimelineHoverContext() {
+  if (!state.hoveredDayKey && !state.hoverContextYear && !state.hoverContextMonthKey) return;
+  state.hoveredDayKey = null;
+  state.hoverContextYear = null;
+  state.hoverContextMonthKey = null;
+  renderTimelineContextHighlights();
+}
+
+function renderTimelineContextHighlights() {
+  els.yearList.querySelectorAll("button[data-year]").forEach((button) => {
+    button.classList.toggle("context", Number(button.dataset.year) === state.hoverContextYear);
+  });
+  els.monthList.querySelectorAll("button[data-month]").forEach((button) => {
+    button.classList.toggle("context", button.dataset.month === state.hoverContextMonthKey);
+  });
+  els.dayList.querySelectorAll("button[data-day]").forEach((button) => {
+    button.classList.toggle("context", button.dataset.day === state.hoveredDayKey);
+  });
 }
 
 function createTimeButton({ className, dataset, title, subtitle }) {
@@ -894,6 +1088,9 @@ function refreshMapData() {
   if (!state.mapReady) return;
   state.map.getSource("footprints")?.setData(pointsToGeoJson(state.filtered));
   state.map.getSource("footprint-path")?.setData(pointsToPathGeoJson(state.filtered));
+  state.map
+    .getSource("footprint-gap-path")
+    ?.setData(els.gapPathToggle.checked ? pointsToGapPathGeoJson(state.filtered) : emptyPath);
   refreshSelectedPoint();
 }
 
@@ -926,10 +1123,7 @@ function pointsToPathGeoJson(points) {
   let previous = null;
 
   for (const point of points) {
-    const connected =
-      previous &&
-      point.time - previous.time <= MAX_PATH_GAP_SECONDS &&
-      haversineKm(previous, point) <= MAX_PATH_GAP_KM;
+    const connected = previous && !isPathGap(previous, point);
 
     if (!connected && segment.length > 1) segments.push(segment);
     if (!connected) segment = [];
@@ -939,6 +1133,24 @@ function pointsToPathGeoJson(points) {
 
   if (segment.length > 1) segments.push(segment);
 
+  return pathSegmentsToGeoJson(segments);
+}
+
+function pointsToGapPathGeoJson(points) {
+  const segments = [];
+  let previous = null;
+
+  for (const point of points) {
+    if (previous && isPathGap(previous, point)) {
+      segments.push([getDisplayCoordinate(previous), getDisplayCoordinate(point)]);
+    }
+    previous = point;
+  }
+
+  return pathSegmentsToGeoJson(segments);
+}
+
+function pathSegmentsToGeoJson(segments) {
   return {
     type: "FeatureCollection",
     features: segments.map((coordinates) => ({
@@ -950,6 +1162,10 @@ function pointsToPathGeoJson(points) {
       },
     })),
   };
+}
+
+function isPathGap(previous, point) {
+  return point.time - previous.time > MAX_PATH_GAP_SECONDS || haversineKm(previous, point) > MAX_PATH_GAP_KM;
 }
 
 function updateStats() {
@@ -1097,7 +1313,28 @@ function applyMapStyle({ fit }) {
   }
 }
 
+function applyPaintScales() {
+  if (!state.mapReady) return;
+  if (state.map.getLayer("footprint-points")) {
+    state.map.setPaintProperty("footprint-points", "circle-radius", pointRadiusExpression());
+    state.map.setPaintProperty("footprint-points", "circle-stroke-width", pointStrokeWidthExpression());
+  }
+  if (state.map.getLayer("footprint-path")) {
+    state.map.setPaintProperty("footprint-path", "line-width", pathWidthExpression());
+  }
+  if (state.map.getLayer("footprint-path-shadow")) {
+    state.map.setPaintProperty("footprint-path-shadow", "line-width", pathShadowWidthExpression());
+  }
+  if (state.map.getLayer("footprint-gap-path")) {
+    state.map.setPaintProperty("footprint-gap-path", "line-width", gapPathWidthExpression());
+  }
+}
+
 function renderSettingsControls() {
+  els.gapPathToggle.checked = Boolean(state.settings.connectDistantPath);
+  els.pointSizeRange.value = String(state.settings.pointScale);
+  els.pathWidthRange.value = String(state.settings.pathScale);
+  syncSettingsConditionalControls();
   els.mapModeButtons.querySelectorAll("button[data-mode]").forEach((button) => {
     button.classList.toggle("active", button.dataset.mode === state.settings.mapMode);
   });
@@ -1105,6 +1342,11 @@ function renderSettingsControls() {
   els.flatSourceSection.hidden = state.settings.mapMode !== "flat";
   renderSourceButtons(els.globeSourceButtons, "globe");
   renderSourceButtons(els.flatSourceButtons, "flat");
+}
+
+function syncSettingsConditionalControls() {
+  els.pointOptions.classList.toggle("collapsed", !els.pointsToggle.checked);
+  els.pathOptions.classList.toggle("collapsed", !els.pathToggle.checked);
 }
 
 function renderSourceButtons(container, mode) {
@@ -1191,11 +1433,26 @@ function normalizeSettings(value) {
   const mapMode = ["globe", "flat"].includes(value?.mapMode) ? value.mapMode : DEFAULT_SETTINGS.mapMode;
   const globe = ["osm", "amap"].includes(value?.sources?.globe) ? value.sources.globe : "osm";
   const flat = ["osm", "amap"].includes(value?.sources?.flat) ? value.sources.flat : "osm";
-  return { mapMode, sources: { globe, flat } };
+  const connectDistantPath =
+    typeof value?.connectDistantPath === "boolean" ? value.connectDistantPath : DEFAULT_SETTINGS.connectDistantPath;
+  const pointScale = normalizeScale(value?.pointScale, DEFAULT_SETTINGS.pointScale);
+  const pathScale = normalizeScale(value?.pathScale, DEFAULT_SETTINGS.pathScale);
+  return { mapMode, sources: { globe, flat }, connectDistantPath, pointScale, pathScale };
 }
 
 function getDefaultSettings() {
-  return { mapMode: DEFAULT_SETTINGS.mapMode, sources: { ...DEFAULT_SETTINGS.sources } };
+  return {
+    mapMode: DEFAULT_SETTINGS.mapMode,
+    sources: { ...DEFAULT_SETTINGS.sources },
+    connectDistantPath: DEFAULT_SETTINGS.connectDistantPath,
+    pointScale: DEFAULT_SETTINGS.pointScale,
+    pathScale: DEFAULT_SETTINGS.pathScale,
+  };
+}
+
+function normalizeScale(value, fallback = DEFAULT_SCALE) {
+  const scale = Number.parseFloat(value);
+  return Number.isFinite(scale) ? clamp(scale, 0.25, 4) : fallback;
 }
 
 function setLayerVisibility(layerId, visible) {
@@ -1207,6 +1464,7 @@ function syncLayerVisibility() {
   setLayerVisibility("footprint-points", els.pointsToggle.checked);
   setLayerVisibility("footprint-path", els.pathToggle.checked);
   setLayerVisibility("footprint-path-shadow", els.pathToggle.checked);
+  setLayerVisibility("footprint-gap-path", els.pathToggle.checked && els.gapPathToggle.checked);
 }
 
 function getViewLabel() {
@@ -1299,13 +1557,15 @@ function numberFrom(value) {
 
 function normalizeTimestamp(value) {
   const raw = numberFrom(value);
-  if (!raw) return null;
+  if (raw === null) return null;
   return raw > 1e12 ? Math.round(raw / 1000) : Math.round(raw);
 }
 
-function setStatus(text, isError = false) {
+function setStatus(text, isError = false, details = "") {
   els.status.textContent = text;
   els.status.classList.toggle("error", isError);
+  if (details) els.status.title = details;
+  else els.status.removeAttribute("title");
 }
 
 function formatShortDate(epochSeconds) {
